@@ -1,0 +1,6 @@
+{
+    "python.analysis.extraPaths": [
+        "D:\\工程\\AstrBot\\astrbot\\api",
+        "D:\\工程\\AstrBot"
+    ]
+}

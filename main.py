@@ -206,4 +206,12 @@ class MyPlugin(Star):
         if current_text:
             chain.append(Plain(current_text))
 
-        result.chain = chain
+        result = event.make_result()
+        for component in chain:
+            if isinstance(component, Plain):
+                result = result.message(component.text)
+            elif isinstance(component, Image):
+                result = result.file_image(component.path)
+            
+            # 设置结果
+        event.set_result(result)
