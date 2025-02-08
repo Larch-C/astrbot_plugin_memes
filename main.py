@@ -1,4 +1,5 @@
 import asyncio
+import random
 from astrbot.api.event import filter, AstrMessageEvent, MessageEventResult
 from astrbot.api.star import Context, Star, register
 from astrbot.api import logger
@@ -206,12 +207,16 @@ class MyPlugin(Star):
         if current_text:
             chain.append(Plain(current_text))
 
-        result = event.make_result()
-        for component in chain:
-            if isinstance(component, Plain):
-                result = result.message(component.text)
-            elif isinstance(component, Image):
-                result = result.file_image(component.path)
+        # 50% 的概率执行 result.chain = chain
+        if random.random() < 0.5:
+            result.chain = chain
+        else:
+            result = event.make_result()
+            for component in chain:
+                if isinstance(component, Plain):
+                    result = result.message(component.text)
+                elif isinstance(component, Image):
+                    result = result.file_image(component.path)
             
             # 设置结果
-        event.set_result(result)
+            event.set_result(result)
