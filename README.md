@@ -1,4 +1,4 @@
-# AstrBot_Meme
+# AstrBot_Plugin_Meme
 
 AstrBot 表情包插件
 
