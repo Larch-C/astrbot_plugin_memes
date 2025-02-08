@@ -28,7 +28,15 @@ class MyPlugin(Star):
 
     def __init__(self, context: Context):
         super().__init__(context)
+        # 在初始化时创建表情包目录
+        self.create_meme_directories()
     
+    def create_meme_directories(self):
+        current_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        for emotion in memes_dict.values():
+            directory = os.path.join(current_dir, 'data', 'memes', emotion)
+            os.makedirs(directory, exist_ok=True)
+
     # 注册指令的装饰器。指令名为 helloworld。注册成功后，发送 `/helloworld` 就会触发这个指令，并回复 `你好, {user_name}!`
     @filter.command("memes")
     async def hellomemes(self, event: AstrMessageEvent):
