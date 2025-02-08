@@ -3,4 +3,4 @@ desc: 这是能让机器人随机发表情包的插件，可手动添加表情�
 help: 输入 /memes 查看插件帮助，/meme help查看表情包帮助。 # 插件的帮助信息
 version: v1.0.0 # 插件版本号。格式：v1.1.1 或者 v1.1
 author: LunarMeal # 作者
-repo: https://github.com/Soulter/helloworld # 插件的仓库地址
+repo: https://github.com/LunarMeal/astrbot_plugin_memes # 插件的仓库地址
