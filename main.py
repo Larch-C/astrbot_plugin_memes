@@ -209,6 +209,7 @@ class MyPlugin(Star):
                     print(f"文件不存在: {file_url}")
                     yield event.plain_result(f"添加失败，文件不存在")
                     continue
+                
                 # 获取当前脚本的上三级目录
                 current_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
                 # 构建相对路径
