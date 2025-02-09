@@ -1,5 +1,6 @@
 import asyncio
 import random
+import shutil
 from astrbot.api.event import filter, AstrMessageEvent, MessageEventResult
 from astrbot.api.star import Context, Star, register
 from astrbot.api import logger
@@ -118,9 +119,10 @@ class MyPlugin(Star):
             yield event.plain_result(f"删除成功: {file_name}")
         else:
             yield event.plain_result(f"文件不存在: {file_name}")
-    
+
+    @platform_adapter_type(PlatformAdapterType.AIOCQHTTP | PlatformAdapterType.QQOFFICIAL)
     @event_message_type(EventMessageType.PRIVATE_MESSAGE) 
-    async def on_private_message(self, event: AstrMessageEvent):
+    async def on_private_message_QQ(self, event: AstrMessageEvent):
         if event.get_session_id() != self.memeadd_session_id:
             return
         message_str = event.get_messages() # 获取消息的纯文本内容
@@ -180,7 +182,58 @@ class MyPlugin(Star):
                 else:
                     print(f"下载失败，状态码: {response.status_code}")
                     yield event.plain_result(f"添加失败")
+
+    @platform_adapter_type(PlatformAdapterType.GEWECHAT)
+    @event_message_type(EventMessageType.PRIVATE_MESSAGE) 
+    async def on_private_message_wechat(self, event: AstrMessageEvent):
+        if event.get_session_id() != self.memeadd_session_id:
+            return
+        message_str = event.get_messages() # 获取消息的纯文本内容
     
+        # 检查 message_str 中是否包含 Image 实例
+        has_image = any(isinstance(message, Image) for message in message_str)
+    
+        if not has_image:
+            # 如果没有 Image 实例，进行额外处理
+            yield event.plain_result("检测到非表情包消息，停止添加")
+            self.memeadd_session_id = "0"
+            self.memeadd_imgstr = ""
+            return
+    
+        # 假设 message_str 是一个包含 Image 对象的列表
+        for message in message_str:
+            if isinstance(message, Image):
+                file_url = message.file
+                # 检查文件是否存在
+                if not os.path.exists(file_url):
+                    print(f"文件不存在: {file_url}")
+                    yield event.plain_result(f"添加失败，文件不存在")
+                    continue
+                # 获取当前脚本的上三级目录
+                current_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+                # 构建相对路径
+                directory = os.path.join(current_dir, 'data', 'memes', memes_dict[self.memeadd_imgstr])
+                os.makedirs(directory, exist_ok=True)
+                
+                # 获取目录中已有的文件数量
+                existing_files = [f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f))]
+                file_count = len(existing_files)
+                
+                # 获取文件扩展名
+                file_extension = os.path.splitext(file_url)[1]
+                
+                # 生成文件名
+                file_name = f"meme_{file_count + 1}{file_extension}"
+                file_path = os.path.join(directory, file_name)
+                print(f"文件将保存到: {file_path}")
+                try:
+                    shutil.copy2(file_url, file_path)
+                    print(f"文件已成功复制: {file_path}")
+                    yield event.plain_result(f"已成功添加，表情包文件名为: {file_name}")
+                except Exception as e:
+                    print(f"复制失败，错误信息: {e}")
+                    yield event.plain_result(f"添加失败")
+                  
     @filter.on_decorating_result()
     async def on_decorating_result(self, event: AstrMessageEvent):
         result = event.get_result()
