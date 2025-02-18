@@ -117,13 +117,10 @@ class MyPlugin(Star):
         
         if os.path.exists(file_path):
             # 发送图片消息
-            chain = []
-            chain.append(Plain("以下是你所请求的图片："))
-            chain.append(Image(file_path))
-            yield event.make_result().chain(chain)
+            yield event.make_result().file_image(file_path)
         else:
             yield event.plain_result(f"文件不存在: {file_name}")
-    
+            
     @meme.command("del",priority=1)
     async def delete(self, event: AstrMessageEvent, img_str: str, file_name: str):
         if img_str not in memes_dict:
