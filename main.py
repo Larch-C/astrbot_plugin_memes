@@ -117,7 +117,10 @@ class MyPlugin(Star):
         
         if os.path.exists(file_path):
             # 发送图片消息
-            yield event.make_result().file_image(file_path)
+            chain = []
+            chain.append(Plain("以下是你所请求的图片："))
+            chain.append(Image(file_path))
+            yield event.plain_result(chain)
         else:
             yield event.plain_result(f"文件不存在: {file_name}")
     
