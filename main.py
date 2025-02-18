@@ -120,7 +120,7 @@ class MyPlugin(Star):
             chain = []
             chain.append(Plain("以下是你所请求的图片："))
             chain.append(Image(file_path))
-            yield event.make_result().message_chain(chain)
+            yield event.make_result().chain(chain)
         else:
             yield event.plain_result(f"文件不存在: {file_name}")
     
