@@ -55,7 +55,8 @@ class MyPlugin(Star):
         help_text = (
             "/meme add <情感>：添加对应情感的表情包，例如：/meme add 高兴\n"
             "/meme finish：完成添加表情包\n"
-            "/meme show <情感>：显示对应情感的所有表情包文件名\n"
+            "/meme list <情感>：列出对应情感的所有表情包文件名\n"
+            "/meme show <情感> <文件名>：显示对应情感的指定表情包图片\n"
             "/meme del <情感> <文件名>：删除对应情感的指定表情包文件"
         )
         yield event.plain_result(help_text)
@@ -81,8 +82,8 @@ class MyPlugin(Star):
         self.memeadd_imgstr = ""
         yield event.plain_result(f"已完成添加")
 
-    @meme.command("show",priority=1)
-    async def show(self, event: AstrMessageEvent, img_str: str):
+    @meme.command("list",priority=1)
+    async def list(self, event: AstrMessageEvent, img_str: str):
         if img_str not in memes_dict:
             yield event.plain_result(f"请输入在以下列表中的的情感：高兴、悲伤、生气、震惊、打招呼、嘲讽、无奈、害怕、厌恶、告别、羞愧")
             return
@@ -101,6 +102,24 @@ class MyPlugin(Star):
             yield event.plain_result(f"以下是{img_str}表情包的所有文件：\n{file_list}")
         else:
             yield event.plain_result(f"{img_str}表情包目录下没有找到图像文件。")
+
+    @meme.command("show",priority=1)
+    async def show(self, event: AstrMessageEvent, img_str: str, file_name: str):
+        if img_str not in memes_dict:
+            yield event.plain_result(f"请输入在以下列表中的的情感：高兴、悲伤、生气、震惊、打招呼、嘲讽、无奈、害怕、厌恶、告别、羞愧")
+            return
+        
+        # 获取当前脚本的上三级目录
+        current_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        # 构建相对路径
+        directory = os.path.join(current_dir, 'data', 'memes', memes_dict[img_str])
+        file_path = os.path.join(directory, file_name)
+        
+        if os.path.exists(file_path):
+            # 发送图片消息
+            yield event.make_result().file_image(file_path)
+        else:
+            yield event.plain_result(f"文件不存在: {file_name}")
     
     @meme.command("del",priority=1)
     async def delete(self, event: AstrMessageEvent, img_str: str, file_name: str):
