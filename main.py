@@ -266,11 +266,11 @@ class MyPlugin(Star):
         
         chain = []
         current_text = ""
-        img_chain = []
+        other_chain = []
 
         for component in result.chain:
-            if isinstance(component, Image):
-                img_chain.append(component)
+            if not isinstance(component, Plain):
+                other_chain.append(component)
 
         for part in message.split("{memes:"):
             if "}" in part:
@@ -286,7 +286,7 @@ class MyPlugin(Star):
         if current_text:
             chain.append(Plain(current_text))
 
-        chain.extend(img_chain)
+        chain.extend(other_chain)
         # 50% 的概率执行 result.chain = chain
         if random.random() < 0.5:
             result.chain = chain
