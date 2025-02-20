@@ -258,29 +258,35 @@ class MyPlugin(Star):
     @filter.on_decorating_result()
     async def on_decorating_result(self, event: AstrMessageEvent):
         result = event.get_result()
-        message = result.get_plain_text()
-        
-        # 检测消息中是否包含 "/memes"
-        if "/memes" in message:
-            return
-        
         chain = []
         current_text = ""
-
-        for part in message.split("{memes:"):
-            if "}" in part:
-                memes, text = part.split("}", 1)
-                img_url = to_memes(memes)
-                chain.append(Plain(current_text + text))
-                if(img_url is not None):
-                    chain.append(Image.fromFileSystem(img_url))
-                current_text = ""
-            else:
-                current_text += part  # 去掉 "{memes:"
-
-        if current_text:
-            chain.append(Plain(current_text))
-
+        # 遍历消息链中的每个组件
+        for component in result.chain:
+            if isinstance(component, Plain):
+                message = component.text
+                # 检测消息中是否包含 "/memes"
+                if "/memes" in message:
+                    chain.append(component)
+                    continue
+    
+                for part in message.split("{memes:"):
+                    if "}" in part:
+                        memes, text = part.split("}", 1)
+                        img_url = to_memes(memes)
+                        chain.append(Plain(current_text + text))
+                        if img_url is not None:
+                            chain.append(Image.fromFileSystem(img_url))
+                        current_text = ""
+                    else:
+                        current_text += part  # 去掉 "{memes:"
+    
+                if current_text:
+                    chain.append(Plain(current_text))
+                    current_text = ""
+            elif isinstance(component, Image):
+                # 如果是图片组件，直接添加到结果链中
+                chain.append(component)
+    
         # 50% 的概率执行 result.chain = chain
         if random.random() < 0.5:
             result.chain = chain
@@ -291,6 +297,7 @@ class MyPlugin(Star):
                     result = result.message(component.text)
                 elif isinstance(component, Image):
                     result = result.file_image(component.path)
-            
+
+    
             # 设置结果
             event.set_result(result)
