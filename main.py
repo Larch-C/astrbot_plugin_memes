@@ -118,15 +118,14 @@ class MyPlugin(Star):
         
         if os.path.exists(file_path):
             # 发送图片消息
-            yield event.chain_result([seg.Plain("此表情包为:"),seg.Image.fromFileSystem("file_path")])
+            yield event.chain_result([seg.Plain("此表情为:"),seg.Image.fromFileSystem(file_path)])
         else:
             yield event.plain_result(f"文件不存在: {file_name}")
 
     @meme.command("del",priority=1)
     async def delete(self, event: AstrMessageEvent, img_str: str, file_name: str):
         if img_str not in memes_dict:
-
-            yield event.plain_result(f"请输入在以下列表中的情感：高兴、悲伤、生气、震惊、打招呼、嘲讽、无奈、害怕、厌恶、告别、羞愧")
+            yield event.plain_result(f"请输入在以下列表中的的情感：高兴、悲伤、生气、震惊、打招呼、嘲讽、无奈、害怕、厌恶、告别、羞愧")
             return
         
         # 获取当前脚本的上三级目录
@@ -263,19 +262,22 @@ class MyPlugin(Star):
         
         # 检测消息中是否包含 "/memes"
         if "/memes" in message:
-            return
+            return      
         
         chain = []
-        # 过滤出 result.chain 中的所有图片内容
-        img_chain = [component for component in result.chain if isinstance(component, Image)]
         current_text = ""
+        img_chain = []
+
+        for component in result.chain:
+            if isinstance(component, Image):
+                img_chain.append(component)
 
         for part in message.split("{memes:"):
             if "}" in part:
                 memes, text = part.split("}", 1)
                 img_url = to_memes(memes)
                 chain.append(Plain(current_text + text))
-                if img_url is not None:
+                if(img_url is not None):
                     chain.append(Image.fromFileSystem(img_url))
                 current_text = ""
             else:
@@ -284,9 +286,7 @@ class MyPlugin(Star):
         if current_text:
             chain.append(Plain(current_text))
 
-        # 将 img_chain 的内容添加到 chain 里
         chain.extend(img_chain)
-
         # 50% 的概率执行 result.chain = chain
         if random.random() < 0.5:
             result.chain = chain
