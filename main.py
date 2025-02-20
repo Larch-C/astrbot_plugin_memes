@@ -2,6 +2,7 @@ import asyncio
 import random
 import shutil
 from astrbot.api.event import filter, AstrMessageEvent, MessageEventResult
+import astrbot.api.message_components as seg
 from astrbot.api.star import Context, Star, register
 from astrbot.api import logger
 from astrbot.api.all import *
@@ -117,7 +118,7 @@ class MyPlugin(Star):
         
         if os.path.exists(file_path):
             # 发送图片消息
-            yield event.image_result(file_path)
+            yield event.chain_result([seg.Plain("此表情包为:"),seg.Image.fromFileSystem("file_path")])
         else:
             yield event.plain_result(f"文件不存在: {file_name}")
 
