@@ -28,17 +28,42 @@ memes_dict = {"高兴":"happy",
 class MyPlugin(Star):
     memeadd_session_id = "0"
     memeadd_imgstr = ""
+    personas = []
+    current_persona_name = "public"
 
     def __init__(self, context: Context):
         super().__init__(context)
         # 在初始化时创建表情包目录
+        self.personas = self.context.provider_manager.personas
         self.create_meme_directories()
-    
+
     def create_meme_directories(self):
         current_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        # 创建公共目录
         for emotion in memes_dict.values():
-            directory = os.path.join(current_dir, 'data', 'memes', emotion)
-            os.makedirs(directory, exist_ok=True)
+            public_directory = os.path.join(current_dir, 'data', 'memes', 'public', emotion)
+            os.makedirs(public_directory, exist_ok=True)
+            # 检查旧版本目录是否存在
+            old_directory = os.path.join(current_dir, 'data', 'memes', emotion)
+            if os.path.exists(old_directory):
+                # 复制旧目录中的表情包到公共目录
+                for root, dirs, files in os.walk(old_directory):
+                    for file in files:
+                        if file.endswith(('.jpg', '.jpeg', '.png', '.gif')):
+                            old_file_path = os.path.join(root, file)
+                            new_file_path = os.path.join(public_directory, file)
+                            shutil.copy2(old_file_path, new_file_path)
+                # 删除旧目录
+                shutil.rmtree(old_directory)
+
+        # 为每个人格创建目录
+        for persona in self.personas:
+            persona_name = persona.get('name')
+            if persona_name:
+                logger.info(persona_name)
+                for emotion in memes_dict.values():
+                    directory = os.path.join(current_dir, 'data', 'memes', persona_name, emotion)
+                    os.makedirs(directory, exist_ok=True)
 
     # 注册指令的装饰器。指令名为 helloworld。注册成功后，发送 `/helloworld` 就会触发这个指令，并回复 `你好, {user_name}!`
     @filter.command("memes")
@@ -54,26 +79,33 @@ class MyPlugin(Star):
     @meme.command("help",priority=1)
     async def help(self, event: AstrMessageEvent):
         help_text = (
-            "/meme add <情感>：添加对应情感的表情包，例如：/meme add 高兴\n"
+            "/meme add <情感> [人格]：添加对应情感的表情包，例如：/meme add 高兴 public\n"
             "/meme finish：完成添加表情包\n"
-            "/meme list <情感>：列出对应情感的所有表情包文件名\n"
-            "/meme show <情感> <文件名>：显示对应情感的指定表情包图片\n"
-            "/meme del <情感> <文件名>：删除对应情感的指定表情包文件"
+            "/meme list <情感> [人格]：列出对应情感的所有表情包文件名\n"
+            "/meme show <情感> <文件名> [人格]：显示对应情感的指定表情包图片\n"
+            "/meme del <情感> <文件名> [人格]：删除对应情感的指定表情包文件\n"
+            "/meme switch <情感> <原人格> <目标人格> <表情包文件>：将原人格某个情感目录下的表情包文件移动到目标人格对应的情感目录里\n"
+            "注意：[人格]可省略，默认为public(公共表情包)，人格可用/persona list指令查看\n"
+            "机器人只会发送与当前人格相对应的表情包和公共表情包"
         )
         yield event.plain_result(help_text)
-    
+
     @meme.command("add",priority=1)
-    async def add(self, event: AstrMessageEvent, img_str: str):
-        if img_str not in memes_dict:
+    async def add(self, event: AstrMessageEvent, emotion: str, persona_name: str = "public"):
+        if emotion not in memes_dict:
             yield event.plain_result(f"请输入在以下列表中的的情感：高兴、悲伤、生气、震惊、打招呼、嘲讽、无奈、害怕、厌恶、告别、羞愧")
             return
-        yield event.plain_result(f"请在30秒内发送机器人{img_str}时对应的表情包，输入指令/meme finish完成添加")
+        yield event.plain_result(f"请在30秒内发送机器人{emotion}时对应的表情包，输入指令/meme finish完成添加，表情包将保存到 {persona_name} 人格目录下")
         
         # 创建一个异步任务，在延迟一秒后执行
-        asyncio.create_task(self.set_session_and_imgstr(event, img_str))
+        asyncio.create_task(self.set_session_and_imgstr(event, emotion))
 
         # 启动30秒的超时任务
         self.timeout_task = asyncio.create_task(self.timeout_handler(event))
+
+        # 修改保存表情包时的目录逻辑
+        self.current_persona_name = persona_name
+
 
     async def set_session_and_imgstr(self, event: AstrMessageEvent, img_str: str):
         await asyncio.sleep(1)  # 延迟1秒
@@ -105,62 +137,102 @@ class MyPlugin(Star):
         self.memeadd_imgstr = ""
         yield event.plain_result(f"已完成添加")
 
+
     @meme.command("list",priority=1)
-    async def list(self, event: AstrMessageEvent, img_str: str):
-        if img_str not in memes_dict:
+    async def list(self, event: AstrMessageEvent, emotion: str, persona_name: str = "public"):
+        if emotion not in memes_dict:
             yield event.plain_result(f"请输入在以下列表中的的情感：高兴、悲伤、生气、震惊、打招呼、嘲讽、无奈、害怕、厌恶、告别、羞愧")
             return
         
         # 获取当前脚本的上三级目录
         current_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
         # 构建相对路径
-        directory = os.path.join(current_dir, 'data', 'memes', memes_dict[img_str])
+        directory = os.path.join(current_dir, 'data', 'memes', persona_name, memes_dict[emotion])
         
+        # 检查目录是否存在
+        if not os.path.exists(directory):
+            yield event.plain_result(f"{persona_name} 人格的 {emotion} 表情包目录不存在。")
+            return
+
         # 查找目录下的所有图像文件
         image_files = [f for f in os.listdir(directory) if f.endswith(('.jpg', '.jpeg', '.png', '.gif'))]
         
         if image_files:
             # 将文件名列表转换为字符串
             file_list = "\n".join(image_files)
-            yield event.plain_result(f"以下是{img_str}表情包的所有文件：\n{file_list}")
+            yield event.plain_result(f"以下是 {persona_name} 人格 {emotion} 表情包的所有文件：\n{file_list}")
         else:
-            yield event.plain_result(f"{img_str}表情包目录下没有找到图像文件。")
+            yield event.plain_result(f"{persona_name} 人格的 {emotion} 表情包目录下没有找到图像文件。")
 
     @meme.command("show",priority=1)
-    async def show(self, event: AstrMessageEvent, img_str: str, file_name: str):
-        if img_str not in memes_dict:
+    async def show(self, event: AstrMessageEvent, emotion: str, file_name: str, persona_name: str = "public"):
+        if emotion not in memes_dict:
             yield event.plain_result(f"请输入在以下列表中的的情感：高兴、悲伤、生气、震惊、打招呼、嘲讽、无奈、害怕、厌恶、告别、羞愧")
             return
         
         # 获取当前脚本的上三级目录
         current_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
         # 构建相对路径
-        directory = os.path.join(current_dir, 'data', 'memes', memes_dict[img_str])
+        directory = os.path.join(current_dir, 'data', 'memes', persona_name, memes_dict[emotion])
         file_path = os.path.join(directory, file_name)
-        
+
         if os.path.exists(file_path):
             # 发送图片消息
             yield event.chain_result([seg.Plain("此表情为:"),seg.Image.fromFileSystem(file_path)])
         else:
-            yield event.plain_result(f"文件不存在: {file_name}")
+            yield event.plain_result(f"{persona_name} 人格的 {emotion} 表情包目录下文件不存在: {file_name}")
 
     @meme.command("del",priority=1)
-    async def delete(self, event: AstrMessageEvent, img_str: str, file_name: str):
-        if img_str not in memes_dict:
+    async def delete(self, event: AstrMessageEvent, emotion: str, file_name: str, persona_name: str = "public"):
+        if emotion not in memes_dict:
             yield event.plain_result(f"请输入在以下列表中的的情感：高兴、悲伤、生气、震惊、打招呼、嘲讽、无奈、害怕、厌恶、告别、羞愧")
             return
         
         # 获取当前脚本的上三级目录
         current_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
         # 构建相对路径
-        directory = os.path.join(current_dir, 'data', 'memes', memes_dict[img_str])
+        directory = os.path.join(current_dir, 'data', 'memes', persona_name, memes_dict[emotion])
         file_path = os.path.join(directory, file_name)
         
         if os.path.exists(file_path):
             os.remove(file_path)
-            yield event.plain_result(f"删除成功: {file_name}")
+            yield event.plain_result(f"删除 {persona_name} 人格的 {emotion} 表情包文件成功: {file_name}")
         else:
-            yield event.plain_result(f"文件不存在: {file_name}")
+            yield event.plain_result(f"{persona_name} 人格的 {emotion} 表情包目录下文件不存在: {file_name}")
+
+    @meme.command("switch", priority=1)
+    async def switch(self, event: AstrMessageEvent, emotion: str, original_persona: str, target_persona: str, file_name: str):
+        if emotion not in memes_dict:
+            yield event.plain_result(f"请输入在以下列表中的的情感：高兴、悲伤、生气、震惊、打招呼、嘲讽、无奈、害怕、厌恶、告别、羞愧")
+            return
+
+        # 获取当前脚本的上三级目录
+        current_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+
+        # 构建原人格的表情包目录
+        original_directory = os.path.join(current_dir, 'data', 'memes', original_persona, memes_dict[emotion])
+        original_file_path = os.path.join(original_directory, file_name)
+
+        # 检查原文件是否存在
+        if not os.path.exists(original_file_path):
+            yield event.plain_result(f"原文件不存在: {original_file_path}")
+            return
+
+        # 构建目标人格的表情包目录
+        target_directory = os.path.join(current_dir, 'data', 'memes', target_persona, memes_dict[emotion])
+        os.makedirs(target_directory, exist_ok=True)
+
+        # 构建目标文件路径
+        target_file_path = os.path.join(target_directory, file_name)
+
+        try:
+            # 移动文件
+            shutil.move(original_file_path, target_file_path)
+            yield event.plain_result(f"已成功将 {file_name} 从 {original_persona} 人格的 {emotion} 目录移动到 {target_persona} 人格的 {emotion} 目录。")
+        except Exception as e:
+            print(f"移动文件失败，错误信息: {e}")
+            yield event.plain_result(f"移动文件失败，请检查目标目录权限或文件状态。")
+
 
     @platform_adapter_type(PlatformAdapterType.AIOCQHTTP | PlatformAdapterType.QQOFFICIAL)
     @event_message_type(EventMessageType.PRIVATE_MESSAGE) 
@@ -194,8 +266,8 @@ class MyPlugin(Star):
                 if response.status_code == 200:
                     # 获取当前脚本的上三级目录
                     current_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-                    # 构建相对路径
-                    directory = os.path.join(current_dir, 'data', 'memes', memes_dict[self.memeadd_imgstr])
+                    # 构建相对路径，使用 self.current_persona_name
+                    directory = os.path.join(current_dir, 'data', 'memes', self.current_persona_name, memes_dict[self.memeadd_imgstr])
                     os.makedirs(directory, exist_ok=True)
                     
                     # 获取目录中已有的文件数量
@@ -258,8 +330,8 @@ class MyPlugin(Star):
                 
                 # 获取当前脚本的上三级目录
                 current_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-                # 构建相对路径
-                directory = os.path.join(current_dir, 'data', 'memes', memes_dict[self.memeadd_imgstr])
+                # 构建相对路径，使用 self.current_persona_name
+                directory = os.path.join(current_dir, 'data', 'memes', self.current_persona_name, memes_dict[self.memeadd_imgstr])
                 os.makedirs(directory, exist_ok=True)
                 
                 # 获取目录中已有的文件数量
@@ -280,11 +352,18 @@ class MyPlugin(Star):
                 except Exception as e:
                     print(f"复制失败，错误信息: {e}")
                     yield event.plain_result(f"添加失败")
-                  
+
+
     @filter.on_decorating_result()
     async def on_decorating_result(self, event: AstrMessageEvent):
         result = event.get_result()
         message = result.get_plain_text()
+
+        uid = event.unified_msg_origin
+        curr_cid = await self.context.conversation_manager.get_curr_conversation_id(uid)
+        conversation = await self.context.conversation_manager.get_conversation(uid, curr_cid)
+        persona_id = conversation.persona_id # 获取对话使用的人格
+        logger.info(persona_id)
         
         # 检测消息中是否包含 "/memes"
         if "/memes" in message:
@@ -301,9 +380,10 @@ class MyPlugin(Star):
         for part in message.split("{memes:"):
             if "}" in part:
                 memes, text = part.split("}", 1)
-                img_url = to_memes(memes)
+                # 调用修改后的 to_memes 函数并传入 persona_id
+                img_url = to_memes(memes, persona_id)
                 chain.append(Plain(current_text + text))
-                if(img_url is not None):
+                if img_url is not None:
                     chain.append(Image.fromFileSystem(img_url))
                 current_text = ""
             else:
