@@ -30,6 +30,7 @@ class MyPlugin(Star):
     memeadd_imgstr = ""
     personas = []
     current_persona_name = "public"
+    current_persona = None
 
     def __init__(self, context: Context):
         super().__init__(context)
@@ -85,6 +86,7 @@ class MyPlugin(Star):
             "/meme show <情感> <文件名> [人格]：显示对应情感的指定表情包图片\n"
             "/meme del <情感> <文件名> [人格]：删除对应情感的指定表情包文件\n"
             "/meme switch <情感> <原人格> <目标人格> <表情包文件>：将原人格某个情感目录下的表情包文件移动到目标人格对应的情感目录里\n"
+            "/meme setpersona <人格>：设置对话人格(如果对话是默认人格的话会是None，需要用指令设置一下)\n"
             "注意：[人格]可省略，默认为public(公共表情包)，人格可用/persona list指令查看\n"
             "机器人只会发送与当前人格相对应的表情包和公共表情包"
         )
@@ -181,6 +183,11 @@ class MyPlugin(Star):
             yield event.chain_result([seg.Plain("此表情为:"),seg.Image.fromFileSystem(file_path)])
         else:
             yield event.plain_result(f"{persona_name} 人格的 {emotion} 表情包目录下文件不存在: {file_name}")
+
+    @meme.command("setpersona",priority=1)
+    async def setpersona(self, event: AstrMessageEvent, persona: str):
+        self.current_persona = persona 
+        yield event.plain_result(f"{persona} 人格已设置为当前人格")
 
     @meme.command("del",priority=1)
     async def delete(self, event: AstrMessageEvent, emotion: str, file_name: str, persona_name: str = "public"):
@@ -363,6 +370,8 @@ class MyPlugin(Star):
         curr_cid = await self.context.conversation_manager.get_curr_conversation_id(uid)
         conversation = await self.context.conversation_manager.get_conversation(uid, curr_cid)
         persona_id = conversation.persona_id # 获取对话使用的人格
+        if persona_id is None:
+            persona_id = self.current_persona
         logger.info(persona_id)
         
         # 检测消息中是否包含 "/memes"
