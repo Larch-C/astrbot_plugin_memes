@@ -31,6 +31,7 @@ class MyPlugin(Star):
     personas = []
     current_persona_name = "public"
     current_persona = None
+    spilt_rate = 0.5
 
     def __init__(self, context: Context):
         super().__init__(context)
@@ -87,6 +88,7 @@ class MyPlugin(Star):
             "/meme del <情感> <文件名> [人格]：删除对应情感的指定表情包文件\n"
             "/meme switch <情感> <原人格> <目标人格> <表情包文件>：将原人格某个情感目录下的表情包文件移动到目标人格对应的情感目录里\n"
             "/meme setpersona <人格>：设置对话人格(如果对话是默认人格的话会是None，需要用指令设置一下)\n"
+            "/meme setrate <概率>：设置表情包图文分离的概率，概率为0-1之间的小数，默认为0.5\n"
             "注意：[人格]可省略，默认为public(公共表情包)，人格可用/persona list指令查看\n"
             "机器人只会发送与当前人格相对应的表情包和公共表情包"
         )
@@ -188,6 +190,13 @@ class MyPlugin(Star):
     async def setpersona(self, event: AstrMessageEvent, persona: str):
         self.current_persona = persona 
         yield event.plain_result(f"{persona} 人格已设置为当前人格")
+
+    @meme.command("setrate",priority=1)
+    async def setrate(self, event: AstrMessageEvent, rate: str):
+        if float(rate) > 1 or float(rate) < 0:
+            yield event.plain_result(f"请输入在0-1之间的数字")
+        self.spilt_rate = float(rate)
+        yield event.plain_result(f"图文分离概率已设置为 {rate}")
 
     @meme.command("del",priority=1)
     async def delete(self, event: AstrMessageEvent, emotion: str, file_name: str, persona_name: str = "public"):
@@ -403,7 +412,7 @@ class MyPlugin(Star):
 
         chain.extend(other_chain)
         # 50% 的概率执行 result.chain = chain
-        if random.random() < 0.5:
+        if random.random() < self.spilt_rate:
             result.chain = chain
         else:
             result = event.make_result()
