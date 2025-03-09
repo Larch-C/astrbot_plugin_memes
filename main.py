@@ -400,10 +400,11 @@ class MyPlugin(Star):
                 memes, text = part.split("}", 1)
                 # 调用修改后的 to_memes 函数并传入 persona_id
                 img_url = to_memes(memes, persona_id)
-                chain.append(Plain(current_text + text))
+                tmp = current_text + text
+                if tmp != "":
+                    chain.append(Plain(tmp))
                 if img_url is not None:
                     chain.append(Image.fromFileSystem(img_url))
-                current_text = ""
             else:
                 current_text += part  # 去掉 "{memes:"
 
@@ -418,7 +419,7 @@ class MyPlugin(Star):
         else:
             result = event.make_result()
             for component in chain:
-                if isinstance(component, Plain):
+                if isinstance(component, Plain) and component.text:
                     result = result.message(component.text)
                 elif isinstance(component, Image):
                     result = result.file_image(component.path)
