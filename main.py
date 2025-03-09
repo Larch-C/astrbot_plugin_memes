@@ -413,7 +413,6 @@ class MyPlugin(Star):
 
         chain.extend(other_chain)
         # 50% 的概率执行 result.chain = chain
-        logger.info(chain)
         if random.random() < self.spilt_rate:
             result.chain = chain
         else:
