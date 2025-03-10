@@ -378,38 +378,34 @@ class MyPlugin(Star):
         uid = event.unified_msg_origin
         curr_cid = await self.context.conversation_manager.get_curr_conversation_id(uid)
         conversation = await self.context.conversation_manager.get_conversation(uid, curr_cid)
-        persona_id = conversation.persona_id # 获取对话使用的人格
+        persona_id = conversation.persona_id  # 获取对话使用的人格
         if persona_id is None:
             persona_id = self.current_persona
         logger.info(persona_id)
-        
+
         # 检测消息中是否包含 "/memes"
         if "/memes" in message:
-            return      
-        
+            return
+
         chain = []
-        current_text = ""
         other_chain = []
 
         for component in result.chain:
             if not isinstance(component, Plain):
                 other_chain.append(component)
 
-        for part in message.split("{memes:"):
-            if "}" in part:
-                memes, text = part.split("}", 1)
-                # 调用修改后的 to_memes 函数并传入 persona_id
-                img_url = to_memes(memes, persona_id)
-                tmp = current_text + text
-                if tmp != "":
-                    chain.append(Plain(tmp))
-                if img_url is not None:
+        parts = message.split("{memes:")
+        for i, part in enumerate(parts):
+            if i > 0:  # 跳过第一个部分，因为它不包含表情包标签
+                emotion, text = part.split("}", 1)
+                img_url = to_memes(emotion, persona_id)
+                if img_url:
                     chain.append(Image.fromFileSystem(img_url))
+                if text:
+                    chain.append(Plain(text))
             else:
-                current_text += part  # 去掉 "{memes:"
-
-        if current_text:
-            chain.append(Plain(current_text))
+                if part:
+                    chain.append(Plain(part))
 
         chain.extend(other_chain)
         # 50% 的概率执行 result.chain = chain
@@ -422,6 +418,6 @@ class MyPlugin(Star):
                     result = result.message(component.text)
                 elif isinstance(component, Image):
                     result = result.file_image(component.path)
-            
+
             # 设置结果
             event.set_result(result)
