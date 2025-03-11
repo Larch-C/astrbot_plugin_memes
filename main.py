@@ -380,7 +380,7 @@ class MyPlugin(Star):
         conversation = await self.context.conversation_manager.get_conversation(uid, curr_cid)
         persona_id = conversation.persona_id  # 获取对话使用的人格
         if persona_id is None:
-            persona_id = self.current_persona
+            persona_id = self.context.provider_manager.default_persona_name
         logger.info(persona_id)
 
         # 检测消息中是否包含 "/memes"
