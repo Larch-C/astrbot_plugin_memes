@@ -374,51 +374,50 @@ class MyPlugin(Star):
     async def on_decorating_result(self, event: AstrMessageEvent):
         result = event.get_result()
         message = result.get_plain_text()
-        if result and result.is_llm_result():
 
-            uid = event.unified_msg_origin
-            curr_cid = await self.context.conversation_manager.get_curr_conversation_id(uid)
-            conversation = await self.context.conversation_manager.get_conversation(uid, curr_cid)
-            persona_id = conversation.persona_id  # 获取对话使用的人格
-            if persona_id is None:
-                persona_id = self.context.provider_manager.default_persona_name
-            logger.info(persona_id)
+        uid = event.unified_msg_origin
+        curr_cid = await self.context.conversation_manager.get_curr_conversation_id(uid)
+        conversation = await self.context.conversation_manager.get_conversation(uid, curr_cid)
+        persona_id = conversation.persona_id  # 获取对话使用的人格
+        if persona_id is None:
+            persona_id = self.context.provider_manager.default_persona_name
+        logger.info(persona_id)
 
-            # 检测消息中是否包含 "/memes"
-            if "/memes" in message:
-                return
+        # 检测消息中是否包含 "/memes"
+        if "/memes" in message:
+            return
 
-            chain = []
-            other_chain = []
+        chain = []
+        other_chain = []
 
-            for component in result.chain:
-                if not isinstance(component, Plain):
-                    other_chain.append(component)
+        for component in result.chain:
+            if not isinstance(component, Plain):
+                other_chain.append(component)
 
-            parts = message.split("{memes:")
-            for i, part in enumerate(parts):
-                if i > 0:  # 跳过第一个部分，因为它不包含表情包标签
-                    emotion, text = part.split("}", 1)
-                    img_url = to_memes(emotion, persona_id)
-                    if img_url:
-                        chain.append(Image.fromFileSystem(img_url))
-                    if text:
-                        chain.append(Plain(text))
-                else:
-                    if part:
-                        chain.append(Plain(part))
-
-            chain.extend(other_chain)
-            # 50% 的概率执行 result.chain = chain
-            if random.random() < self.spilt_rate:
-                result.chain = chain
+        parts = message.split("{memes:")
+        for i, part in enumerate(parts):
+            if i > 0:  # 跳过第一个部分，因为它不包含表情包标签
+                emotion, text = part.split("}", 1)
+                img_url = to_memes(emotion, persona_id)
+                if img_url:
+                    chain.append(Image.fromFileSystem(img_url))
+                if text:
+                    chain.append(Plain(text))
             else:
-                result = event.make_result()
-                for component in chain:
-                    if isinstance(component, Plain) and component.text:
-                        result = result.message(component.text)
-                    elif isinstance(component, Image):
-                        result = result.file_image(component.path)
+                if part:
+                    chain.append(Plain(part))
 
-                # 设置结果
-                event.set_result(result)
+        chain.extend(other_chain)
+        # 50% 的概率执行 result.chain = chain
+        if random.random() < self.spilt_rate:
+            result.chain = chain
+        else:
+            result = event.make_result()
+            for component in chain:
+                if isinstance(component, Plain) and component.text:
+                    result = result.message(component.text)
+                elif isinstance(component, Image):
+                    result = result.file_image(component.path)
+
+            # 设置结果
+            event.set_result(result)
