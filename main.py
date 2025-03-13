@@ -374,6 +374,8 @@ class MyPlugin(Star):
     async def on_decorating_result(self, event: AstrMessageEvent):
         result = event.get_result()
         message = result.get_plain_text()
+        if not result or not result.is_llm_result():
+            return
 
         uid = event.unified_msg_origin
         curr_cid = await self.context.conversation_manager.get_curr_conversation_id(uid)
